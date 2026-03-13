@@ -2,224 +2,220 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PMF Ultra Converter Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PMF Converter Pro</title>
     <script src="coi-serviceworker.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            --bg: #05070a;
-            --sidebar: #0f1117;
-            --card: #161922;
+            --bg: #080a0f;
+            --card: #121620;
             --accent: #00f2ff;
-            --text: #e2e8f0;
-            --border: #2d333f;
+            --text: #ffffff;
+            --dim: #64748b;
+            --safe-area: env(safe-area-inset-bottom);
         }
 
-        body {
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        body, html {
             margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
             background: var(--bg);
             color: var(--text);
-            font-family: 'Inter', system-ui, sans-serif;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+
+        .app-shell {
             display: flex;
+            flex-direction: column;
             height: 100vh;
-            overflow: hidden;
+            height: 100dvh;
+            position: relative;
         }
 
         .sidebar {
-            width: 300px;
-            background: var(--sidebar);
-            border-right: 1px solid var(--border);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 85%;
+            height: 100%;
+            background: var(--card);
+            z-index: 100;
+            transform: translateX(-100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-right: 1px solid #2d333f;
             display: flex;
             flex-direction: column;
-            transition: transform 0.3s ease;
-            position: absolute;
-            z-index: 100;
-            height: 100%;
-            transform: translateX(-100%);
         }
 
         .sidebar.open { transform: translateX(0); }
 
-        .sidebar-header {
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        .main-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
             padding: 20px;
-            border-bottom: 1px solid var(--border);
+            gap: 15px;
+            justify-content: space-between;
+        }
+
+        header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            height: 50px;
         }
 
-        .file-stack {
+        .drop-area {
             flex: 1;
-            overflow-y: auto;
-            padding: 10px;
-        }
-
-        .main-content {
-            flex: 1;
+            border: 2px dashed #2d333f;
+            border-radius: 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 20px;
-            position: relative;
-        }
-
-        .nav-trigger {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            background: var(--card);
-            border: 1px solid var(--border);
-            color: var(--accent);
-            padding: 12px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 1.2rem;
-        }
-
-        .converter-card {
-            width: 100%;
-            max-width: 600px;
-            background: var(--card);
-            border-radius: 24px;
-            padding: 40px;
+            background: rgba(255,255,255,0.02);
             text-align: center;
-            border: 1px solid var(--border);
-            box-shadow: 0 0 40px rgba(0,242,255,0.05);
+            padding: 20px;
         }
 
-        #drop-zone {
-            border: 2px dashed var(--border);
-            border-radius: 20px;
-            padding: 60px 20px;
-            margin-bottom: 20px;
-            cursor: pointer;
-            transition: 0.3s;
+        .drop-area.active { border-color: var(--accent); background: rgba(0,242,255,0.05); }
+
+        .status-panel {
+            background: var(--card);
+            border-radius: 15px;
+            padding: 15px;
+            border: 1px solid #2d333f;
         }
 
-        #drop-zone:hover { border-color: var(--accent); background: rgba(0,242,255,0.02); }
-
-        .btn-main {
-            background: var(--accent);
-            color: #000;
-            border: none;
-            padding: 16px 32px;
-            border-radius: 12px;
-            font-weight: 800;
-            font-size: 1rem;
-            cursor: pointer;
-            width: 100%;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .btn-main:disabled { opacity: 0.3; cursor: not-allowed; }
-
-        .progress-box {
-            margin-top: 25px;
-            display: none;
-        }
-
-        .progress-bar {
-            height: 6px;
+        .progress-track {
+            height: 4px;
             background: #000;
-            border-radius: 3px;
-            overflow: hidden;
+            border-radius: 2px;
             margin: 10px 0;
+            overflow: hidden;
         }
 
         .progress-fill {
             width: 0%;
             height: 100%;
             background: var(--accent);
-            box-shadow: 0 0 10px var(--accent);
             transition: width 0.2s;
         }
 
-        .log-container {
-            margin-top: 20px;
+        .log-mini {
+            height: 60px;
             background: #000;
-            border-radius: 8px;
-            padding: 15px;
+            border-radius: 10px;
+            padding: 8px;
             font-family: monospace;
-            font-size: 0.75rem;
-            text-align: left;
-            height: 100px;
+            font-size: 10px;
+            color: #10b981;
             overflow-y: auto;
-            position: relative;
         }
 
-        .copy-log {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            background: #222;
+        .btn-action {
+            height: 60px;
+            background: var(--accent);
+            color: #000;
             border: none;
-            color: #888;
-            padding: 4px 8px;
-            border-radius: 4px;
-            cursor: pointer;
+            border-radius: 15px;
+            font-weight: 800;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: var(--safe-area);
         }
 
-        .file-item-mini {
+        .btn-action:disabled { opacity: 0.3; }
+
+        .file-card {
             background: #1c212c;
             padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 8px;
-            font-size: 0.85rem;
+            border-radius: 12px;
+            margin-bottom: 10px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 8px; }
-        .dot-waiting { background: #64748b; }
-        .dot-working { background: var(--accent); animation: pulse 1s infinite; }
-        .dot-done { background: #10b981; }
+        .icon-btn {
+            background: var(--card);
+            border: 1px solid #2d333f;
+            color: var(--accent);
+            width: 45px;
+            height: 45px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
 
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+        .overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            z-index: 90;
+        }
+
+        .overlay.active { display: block; }
     </style>
 </head>
 <body>
 
-<div class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-        <h3 style="margin:0"><i class="fas fa-layer-group"></i> Fila de Arquivos</h3>
-        <button onclick="toggleSidebar()" style="background:none; border:none; color:#fff; cursor:pointer;"><i class="fas fa-times"></i></button>
+<div class="app-shell">
+    <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+    
+    <div class="sidebar" id="sidebar">
+        <div style="padding: 20px; border-bottom: 1px solid #2d333f; font-weight: bold;">ARQUIVOS CARREGADOS</div>
+        <div class="sidebar-content" id="sidebar-content">
+            <p style="color: var(--dim); text-align: center; margin-top: 50px;">Fila vazia</p>
+        </div>
     </div>
-    <div class="file-stack" id="file-stack">
-        <p style="text-align:center; color:#555; margin-top:20px;">Nenhum arquivo</p>
-    </div>
-</div>
 
-<div class="main-content">
-    <button class="nav-trigger" onclick="toggleSidebar()">🗃</button>
+    <div class="main-container">
+        <header>
+            <button class="icon-btn" onclick="toggleSidebar()">🗃</button>
+            <div style="font-weight: 900; letter-spacing: 1px;">PMF <span style="color:var(--accent)">ULTRA</span></div>
+            <button class="icon-btn" onclick="copyLogs()"><i class="fas fa-copy"></i></button>
+        </header>
 
-    <div class="converter-card">
-        <h1 style="margin-top:0">PMF <span style="color:var(--accent)">PRO</span></h1>
-        
-        <div id="drop-zone" onclick="document.getElementById('file-input').click()">
+        <div class="drop-area" id="drop-area" onclick="document.getElementById('file-input').click()">
             <input type="file" id="file-input" multiple accept=".pmf" hidden>
-            <i class="fas fa-cloud-upload-alt" style="font-size:3rem; color:var(--accent); margin-bottom:15px;"></i>
-            <p>Solte arquivos PMF aqui</p>
-            <small style="color:#555">Os arquivos não saem do seu computador</small>
+            <i class="fas fa-file-import" style="font-size: 2.5rem; color: var(--accent); margin-bottom: 15px;"></i>
+            <span style="font-weight: 600;">Toque para adicionar</span>
+            <span style="color: var(--dim); font-size: 0.8rem; margin-top: 5px;">Arquivos .PMF</span>
         </div>
 
-        <button id="convert-btn" class="btn-main" disabled>Converter Tudo</button>
-
-        <div class="progress-box" id="progress-box">
-            <div style="display:flex; justify-content:space-between; font-size:0.8rem">
-                <span id="current-file-name">Processando...</span>
-                <span id="percent-text">0%</span>
+        <div class="status-panel">
+            <div style="display: flex; justify-content: space-between; font-size: 0.75rem;">
+                <span id="file-name-display" style="max-width: 70%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">Aguardando...</span>
+                <span id="percent-display">0%</span>
             </div>
-            <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+            <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+            <div class="log-mini" id="log-mini"></div>
         </div>
 
-        <div class="log-container">
-            <button class="copy-log" onclick="copyLogs()">Copiar Erros</button>
-            <div id="log-output" style="color:#10b981">> Aguardando comando...</div>
-        </div>
+        <button class="btn-action" id="convert-btn" disabled>
+            <i class="fas fa-bolt"></i> CONVERTER AGORA
+        </button>
     </div>
 </div>
 
@@ -228,71 +224,74 @@
     import { fetchFile, toBlobURL } from "https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js";
 
     const ffmpeg = new FFmpeg();
-    let queue = [];
-    let isBusy = false;
+    let files = [];
+    let processing = false;
 
-    window.toggleSidebar = () => document.getElementById('sidebar').classList.toggle('open');
+    window.toggleSidebar = () => {
+        document.getElementById('sidebar').classList.toggle('open');
+        document.getElementById('overlay').classList.toggle('active');
+    };
 
     const dom = {
         input: document.getElementById('file-input'),
-        stack: document.getElementById('file-stack'),
         btn: document.getElementById('convert-btn'),
-        log: document.getElementById('log-output'),
-        progBox: document.getElementById('progress-box'),
-        progFill: document.getElementById('progress-fill'),
-        percent: document.getElementById('percent-text')
+        sidebar: document.getElementById('sidebar-content'),
+        log: document.getElementById('log-mini'),
+        prog: document.getElementById('progress-fill'),
+        perc: document.getElementById('percent-display'),
+        fname: document.getElementById('file-name-display')
     };
 
-    dom.input.onchange = (e) => {
-        const files = Array.from(e.target.files);
-        files.forEach(file => {
-            if(file.name.endsWith('.pmf')) {
-                queue.push({ file, id: Math.random().toString(36).substr(2, 9), status: 'waiting' });
+    dom.input.addEventListener('change', (e) => {
+        const selected = Array.from(e.target.files);
+        selected.forEach(file => {
+            if (file.name.toLowerCase().endsWith('.pmf')) {
+                files.push({ file, status: 'waiting', url: null });
             }
         });
-        updateUI();
-    };
+        updateList();
+    });
 
-    function updateUI() {
-        dom.btn.disabled = queue.length === 0 || isBusy;
-        if(queue.length === 0) {
-            dom.stack.innerHTML = '<p style="text-align:center; color:#555; margin-top:20px;">Nenhum arquivo</p>';
+    function updateList() {
+        dom.btn.disabled = files.length === 0 || processing;
+        if (files.length === 0) {
+            dom.sidebar.innerHTML = '<p style="color: var(--dim); text-align: center; margin-top: 50px;">Fila vazia</p>';
             return;
         }
-        dom.stack.innerHTML = queue.map(item => `
-            <div class="file-item-mini">
-                <span><span class="status-dot dot-${item.status}"></span>${item.file.name}</span>
-                ${item.url ? `<a href="${item.url}" download="${item.file.name.replace('.pmf', '.mp4')}" style="color:var(--accent)"><i class="fas fa-download"></i></a>` : ''}
+        dom.sidebar.innerHTML = files.map((f, i) => `
+            <div class="file-card">
+                <div style="font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis;">${f.file.name}</div>
+                <div>${f.url ? `<a href="${f.url}" download="${f.file.name.replace(/\.pmf$/i, '.mp4')}" style="color:var(--accent)"><i class="fas fa-download"></i></a>` : `<i class="fas fa-clock" style="color:#333"></i>`}</div>
             </div>
         `).join('');
     }
 
     function addLog(msg) {
-        const line = document.createElement('div');
-        line.textContent = `> ${msg}`;
-        dom.log.appendChild(line);
+        const div = document.createElement('div');
+        div.textContent = `> ${msg}`;
+        dom.log.appendChild(div);
         dom.log.scrollTop = dom.log.scrollHeight;
     }
 
     window.copyLogs = () => {
         navigator.clipboard.writeText(dom.log.innerText);
-        alert("Logs copiados!");
+        alert("Logs copiados para a área de transferência");
     };
 
     ffmpeg.on('log', ({ message }) => addLog(message));
     ffmpeg.on('progress', ({ progress }) => {
         const p = Math.round(progress * 100);
-        dom.progFill.style.width = p + '%';
-        dom.percent.innerText = p + '%';
+        dom.prog.style.width = p + '%';
+        dom.perc.innerText = p + '%';
     });
 
     dom.btn.onclick = async () => {
-        isBusy = true;
-        updateUI();
-        dom.progBox.style.display = 'block';
+        if (processing) return;
+        processing = true;
+        updateList();
 
         if (!ffmpeg.loaded) {
-            addLog("Carregando motor FFmpeg...");
+            addLog("Iniciando motor...");
             const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
             await ffmpeg.load({
                 coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
@@ -301,39 +300,36 @@
             });
         }
 
-        for (let item of queue) {
+        for (let item of files) {
             if (item.status === 'done') continue;
-
+            
+            dom.fname.innerText = item.file.name;
             item.status = 'working';
-            updateUI();
-            document.getElementById('current-file-name').innerText = item.file.name;
-
+            
             try {
-                const inputName = item.file.name;
-                const outputName = inputName.replace(/\.pmf$/i, '.mp4');
+                const inName = item.file.name;
+                const outName = inName.replace(/\.pmf$/i, '.mp4');
                 
-                await ffmpeg.writeFile(inputName, await fetchFile(item.file));
+                await ffmpeg.writeFile(inName, await fetchFile(item.file));
+                await ffmpeg.exec(['-i', inName, '-c:v', 'libx264', '-preset', 'ultrafast', outName]);
                 
-                await ffmpeg.exec(['-i', inputName, '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23', '-c:a', 'aac', outputName]);
-                
-                const data = await ffmpeg.readFile(outputName);
+                const data = await ffmpeg.readFile(outName);
                 item.url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
                 item.status = 'done';
                 
-                await ffmpeg.deleteFile(inputName);
-                await ffmpeg.deleteFile(outputName);
-            } catch (err) {
-                addLog("ERRO CRÍTICO: " + err.message);
+                await ffmpeg.deleteFile(inName);
+                await ffmpeg.deleteFile(outName);
+            } catch (e) {
+                addLog("ERRO: " + e.message);
                 item.status = 'error';
             }
-            updateUI();
+            updateList();
         }
 
-        isBusy = false;
-        dom.btn.disabled = false;
-        addLog("Todos os processos finalizados.");
+        processing = false;
+        dom.fname.innerText = "Concluído!";
+        updateList();
     };
 </script>
-
 </body>
 </html>
