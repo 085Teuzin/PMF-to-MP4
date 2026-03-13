@@ -3,134 +3,224 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ultra PMF Converter Pro</title>
+    <title>PMF Ultra Converter Pro</title>
+    <script src="coi-serviceworker.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
     <style>
         :root {
-            --bg: #0b0f1a;
-            --card: #161e2d;
-            --accent: #0ea5e9;
-            --accent-hover: #38bdf8;
-            --text: #f8fafc;
-            --text-dim: #94a3b8;
-            --success: #10b981;
-            --error: #ef4444;
-            --border: #2d3748;
+            --bg: #05070a;
+            --sidebar: #0f1117;
+            --card: #161922;
+            --accent: #00f2ff;
+            --text: #e2e8f0;
+            --border: #2d333f;
         }
-
-        * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
 
         body {
             margin: 0;
             background: var(--bg);
             color: var(--text);
+            font-family: 'Inter', system-ui, sans-serif;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: var(--sidebar);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+            position: absolute;
+            z-index: 100;
+            height: 100%;
+            transform: translateX(-100%);
+        }
+
+        .sidebar.open { transform: translateX(0); }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .file-stack {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .main-content {
+            flex: 1;
             display: flex;
             flex-direction: column;
             align-items: center;
-            min-height: 100vh;
+            justify-content: center;
             padding: 20px;
+            position: relative;
         }
 
-        .app-container {
+        .nav-trigger {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            color: var(--accent);
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.2rem;
+        }
+
+        .converter-card {
             width: 100%;
-            max-width: 800px;
+            max-width: 600px;
             background: var(--card);
             border-radius: 24px;
             padding: 40px;
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+            text-align: center;
             border: 1px solid var(--border);
+            box-shadow: 0 0 40px rgba(0,242,255,0.05);
         }
 
-        header { text-align: center; margin-bottom: 30px; }
-        h1 { font-size: 2.2rem; margin: 0; font-weight: 800; background: linear-gradient(90deg, #fff, var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        
         #drop-zone {
             border: 2px dashed var(--border);
-            padding: 40px 20px;
             border-radius: 20px;
-            text-align: center;
+            padding: 60px 20px;
+            margin-bottom: 20px;
             cursor: pointer;
-            transition: 0.2s;
-            background: rgba(15, 23, 42, 0.5);
+            transition: 0.3s;
         }
 
-        #drop-zone.active { border-color: var(--accent); background: rgba(14, 165, 233, 0.05); }
+        #drop-zone:hover { border-color: var(--accent); background: rgba(0,242,255,0.02); }
 
-        .file-list {
-            margin: 25px 0;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
-        .file-item {
-            display: grid;
-            grid-template-columns: 1fr auto auto;
-            align-items: center;
-            gap: 15px;
-            padding: 12px 18px;
-            background: #1e293b;
-            margin-bottom: 8px;
+        .btn-main {
+            background: var(--accent);
+            color: #000;
+            border: none;
+            padding: 16px 32px;
             border-radius: 12px;
-            border: 1px solid var(--border);
+            font-weight: 800;
+            font-size: 1rem;
+            cursor: pointer;
+            width: 100%;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
-        .status-badge { font-size: 0.7rem; padding: 4px 10px; border-radius: 20px; font-weight: 700; text-transform: uppercase; }
-        .status-wait { background: #334155; color: #94a3b8; }
-        .status-work { background: rgba(14, 165, 233, 0.2); color: var(--accent); }
-        .status-done { background: rgba(16, 185, 129, 0.2); color: var(--success); }
+        .btn-main:disabled { opacity: 0.3; cursor: not-allowed; }
 
-        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
-        .btn-primary { background: var(--accent); color: white; width: 100%; grid-column: span 2; font-size: 1.1rem; padding: 15px; border-radius: 12px; border: none; font-weight: 700; cursor: pointer; }
-        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+        .progress-box {
+            margin-top: 25px;
+            display: none;
+        }
 
-        .progress-container { margin-top: 25px; display: none; }
-        .progress-track { height: 8px; background: #0f172a; border-radius: 4px; overflow: hidden; }
-        .progress-fill { width: 0%; height: 100%; background: var(--accent); transition: width 0.3s; }
+        .progress-bar {
+            height: 6px;
+            background: #000;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
 
-        .log-box {
+        .progress-fill {
+            width: 0%;
+            height: 100%;
+            background: var(--accent);
+            box-shadow: 0 0 10px var(--accent);
+            transition: width 0.2s;
+        }
+
+        .log-container {
             margin-top: 20px;
             background: #000;
+            border-radius: 8px;
             padding: 15px;
-            border-radius: 10px;
             font-family: monospace;
-            font-size: 0.7rem;
-            color: #10b981;
-            height: 120px;
+            font-size: 0.75rem;
+            text-align: left;
+            height: 100px;
             overflow-y: auto;
-            border: 1px solid var(--border);
+            position: relative;
         }
+
+        .copy-log {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: #222;
+            border: none;
+            color: #888;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .file-item-mini {
+            background: #1c212c;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+        .dot-waiting { background: #64748b; }
+        .dot-working { background: var(--accent); animation: pulse 1s infinite; }
+        .dot-done { background: #10b981; }
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
 
-<div class="app-container">
-    <header>
-        <h1>PMF Ultra Converter</h1>
-        <p style="color: var(--text-dim)">Processamento local de alta performance</p>
-    </header>
-
-    <div id="drop-zone">
-        <input type="file" id="file-input" multiple accept=".pmf" hidden>
-        <i class="fas fa-file-video" style="font-size: 2.5rem; color: var(--accent); margin-bottom: 10px;"></i>
-        <p>Arraste arquivos .pmf ou clique para selecionar</p>
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <h3 style="margin:0"><i class="fas fa-layer-group"></i> Fila de Arquivos</h3>
+        <button onclick="toggleSidebar()" style="background:none; border:none; color:#fff; cursor:pointer;"><i class="fas fa-times"></i></button>
     </div>
+    <div class="file-stack" id="file-stack">
+        <p style="text-align:center; color:#555; margin-top:20px;">Nenhum arquivo</p>
+    </div>
+</div>
 
-    <div class="file-list" id="file-list"></div>
+<div class="main-content">
+    <button class="nav-trigger" onclick="toggleSidebar()">🗃</button>
 
-    <div class="progress-container" id="progress-container">
-        <div style="display:flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 5px;">
-            <span id="status-text">Pronto</span>
-            <span id="percentage-text">0%</span>
+    <div class="converter-card">
+        <h1 style="margin-top:0">PMF <span style="color:var(--accent)">PRO</span></h1>
+        
+        <div id="drop-zone" onclick="document.getElementById('file-input').click()">
+            <input type="file" id="file-input" multiple accept=".pmf" hidden>
+            <i class="fas fa-cloud-upload-alt" style="font-size:3rem; color:var(--accent); margin-bottom:15px;"></i>
+            <p>Solte arquivos PMF aqui</p>
+            <small style="color:#555">Os arquivos não saem do seu computador</small>
         </div>
-        <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
-    </div>
 
-    <div class="controls">
-        <button id="convert-btn" class="btn-primary" disabled>Iniciar Conversão</button>
-    </div>
+        <button id="convert-btn" class="btn-main" disabled>Converter Tudo</button>
 
-    <div class="log-box" id="log-box"></div>
+        <div class="progress-box" id="progress-box">
+            <div style="display:flex; justify-content:space-between; font-size:0.8rem">
+                <span id="current-file-name">Processando...</span>
+                <span id="percent-text">0%</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+        </div>
+
+        <div class="log-container">
+            <button class="copy-log" onclick="copyLogs()">Copiar Erros</button>
+            <div id="log-output" style="color:#10b981">> Aguardando comando...</div>
+        </div>
+    </div>
 </div>
 
 <script type="module">
@@ -138,110 +228,110 @@
     import { fetchFile, toBlobURL } from "https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js";
 
     const ffmpeg = new FFmpeg();
-    let files = [];
-    let isLoaded = false;
+    let queue = [];
+    let isBusy = false;
+
+    window.toggleSidebar = () => document.getElementById('sidebar').classList.toggle('open');
 
     const dom = {
-        dropZone: document.getElementById("drop-zone"),
-        fileInput: document.getElementById("file-input"),
-        fileList: document.getElementById("file-list"),
-        convertBtn: document.getElementById("convert-btn"),
-        progressContainer: document.getElementById("progress-container"),
-        progressFill: document.getElementById("progress-fill"),
-        statusText: document.getElementById("status-text"),
-        percentageText: document.getElementById("percentage-text"),
-        logBox: document.getElementById("log-box")
+        input: document.getElementById('file-input'),
+        stack: document.getElementById('file-stack'),
+        btn: document.getElementById('convert-btn'),
+        log: document.getElementById('log-output'),
+        progBox: document.getElementById('progress-box'),
+        progFill: document.getElementById('progress-fill'),
+        percent: document.getElementById('percent-text')
     };
 
-    const log = (msg) => {
-        const div = document.createElement("div");
-        div.textContent = `> ${msg}`;
-        dom.logBox.appendChild(div);
-        dom.logBox.scrollTop = dom.logBox.scrollHeight;
+    dom.input.onchange = (e) => {
+        const files = Array.from(e.target.files);
+        files.forEach(file => {
+            if(file.name.endsWith('.pmf')) {
+                queue.push({ file, id: Math.random().toString(36).substr(2, 9), status: 'waiting' });
+            }
+        });
+        updateUI();
     };
 
-    async function loadFFmpeg() {
-        if (isLoaded) return;
-        try {
-            log("Baixando bibliotecas core...");
+    function updateUI() {
+        dom.btn.disabled = queue.length === 0 || isBusy;
+        if(queue.length === 0) {
+            dom.stack.innerHTML = '<p style="text-align:center; color:#555; margin-top:20px;">Nenhum arquivo</p>';
+            return;
+        }
+        dom.stack.innerHTML = queue.map(item => `
+            <div class="file-item-mini">
+                <span><span class="status-dot dot-${item.status}"></span>${item.file.name}</span>
+                ${item.url ? `<a href="${item.url}" download="${item.file.name.replace('.pmf', '.mp4')}" style="color:var(--accent)"><i class="fas fa-download"></i></a>` : ''}
+            </div>
+        `).join('');
+    }
+
+    function addLog(msg) {
+        const line = document.createElement('div');
+        line.textContent = `> ${msg}`;
+        dom.log.appendChild(line);
+        dom.log.scrollTop = dom.log.scrollHeight;
+    }
+
+    window.copyLogs = () => {
+        navigator.clipboard.writeText(dom.log.innerText);
+        alert("Logs copiados!");
+    };
+
+    ffmpeg.on('log', ({ message }) => addLog(message));
+    ffmpeg.on('progress', ({ progress }) => {
+        const p = Math.round(progress * 100);
+        dom.progFill.style.width = p + '%';
+        dom.percent.innerText = p + '%';
+    });
+
+    dom.btn.onclick = async () => {
+        isBusy = true;
+        updateUI();
+        dom.progBox.style.display = 'block';
+
+        if (!ffmpeg.loaded) {
+            addLog("Carregando motor FFmpeg...");
             const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
             await ffmpeg.load({
                 coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
                 wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
                 workerURL: await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, "text/javascript")
             });
-            isLoaded = true;
-            log("FFmpeg pronto para uso.");
-        } catch (e) {
-            log("ERRO: " + e.message);
         }
-    }
 
-    dom.dropZone.onclick = () => dom.fileInput.click();
-    dom.fileInput.onchange = (e) => handleFiles(e.target.files);
-    
-    dom.dropZone.ondragover = (e) => { e.preventDefault(); dom.dropZone.classList.add("active"); };
-    dom.dropZone.ondragleave = () => dom.dropZone.classList.remove("active");
-    dom.dropZone.ondrop = (e) => { e.preventDefault(); dom.dropZone.classList.remove("active"); handleFiles(e.dataTransfer.files); };
+        for (let item of queue) {
+            if (item.status === 'done') continue;
 
-    function handleFiles(selected) {
-        for (const file of selected) {
-            if (!file.name.toLowerCase().endsWith(".pmf")) continue;
-            files.push({ file, name: file.name, status: 'Aguardando', downloadUrl: null });
-        }
-        renderFiles();
-        dom.convertBtn.disabled = files.length === 0;
-    }
-
-    function renderFiles() {
-        dom.fileList.innerHTML = files.map((f, i) => `
-            <div class="file-item">
-                <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${f.name}</div>
-                <span class="status-badge ${f.status === 'Concluído' ? 'status-done' : (f.status === 'Processando' ? 'status-work' : 'status-wait')}">${f.status}</span>
-                <div>${f.downloadUrl ? `<a href="${f.downloadUrl}" download="${f.name.replace('.pmf', '.mp4')}" style="color:var(--accent)"><i class="fas fa-download"></i></a>` : ''}</div>
-            </div>
-        `).join('');
-    }
-
-    ffmpeg.on("log", ({ message }) => log(message));
-    ffmpeg.on("progress", ({ progress }) => {
-        const p = Math.round(progress * 100);
-        dom.progressFill.style.width = `${p}%`;
-        dom.percentageText.innerText = `${p}%`;
-    });
-
-    dom.convertBtn.onclick = async () => {
-        dom.convertBtn.disabled = true;
-        dom.progressContainer.style.display = "block";
-        await loadFFmpeg();
-
-        for (let i = 0; i < files.length; i++) {
-            if (files[i].status === 'Concluído') continue;
-            
-            files[i].status = 'Processando';
-            renderFiles();
-            dom.statusText.innerText = `Convertendo: ${files[i].name}`;
+            item.status = 'working';
+            updateUI();
+            document.getElementById('current-file-name').innerText = item.file.name;
 
             try {
-                await ffmpeg.writeFile(files[i].name, await fetchFile(files[i].file));
-                const outName = "output.mp4";
+                const inputName = item.file.name;
+                const outputName = inputName.replace(/\.pmf$/i, '.mp4');
                 
-                await ffmpeg.exec(["-i", files[i].name, "-c:v", "libx264", "-preset", "ultrafast", outName]);
+                await ffmpeg.writeFile(inputName, await fetchFile(item.file));
                 
-                const data = await ffmpeg.readFile(outName);
-                files[i].downloadUrl = URL.createObjectURL(new Blob([data.buffer], { type: "video/mp4" }));
-                files[i].status = 'Concluído';
+                await ffmpeg.exec(['-i', inputName, '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23', '-c:a', 'aac', outputName]);
                 
-                await ffmpeg.deleteFile(files[i].name);
-                await ffmpeg.deleteFile(outName);
+                const data = await ffmpeg.readFile(outputName);
+                item.url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
+                item.status = 'done';
+                
+                await ffmpeg.deleteFile(inputName);
+                await ffmpeg.deleteFile(outputName);
             } catch (err) {
-                log("Erro: " + err.message);
-                files[i].status = 'Erro';
+                addLog("ERRO CRÍTICO: " + err.message);
+                item.status = 'error';
             }
-            renderFiles();
+            updateUI();
         }
-        dom.statusText.innerText = "Finalizado!";
-        dom.convertBtn.disabled = false;
+
+        isBusy = false;
+        dom.btn.disabled = false;
+        addLog("Todos os processos finalizados.");
     };
 </script>
 
