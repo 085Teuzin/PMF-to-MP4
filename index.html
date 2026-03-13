@@ -221,115 +221,148 @@
 
 <script type="module">
     import { FFmpeg } from "https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/esm/index.js";
-    import { fetchFile, toBlobURL } from "https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js";
+import { toBlobURL } from "https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js";
 
-    const ffmpeg = new FFmpeg();
-    let files = [];
-    let processing = false;
+const ffmpeg = new FFmpeg();
+let files = [];
+let processing = false;
 
-    window.toggleSidebar = () => {
-        document.getElementById('sidebar').classList.toggle('open');
-        document.getElementById('overlay').classList.toggle('active');
-    };
+// Interface e Sidebar
+window.toggleSidebar = () => {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('overlay').classList.toggle('active');
+};
 
-    const dom = {
-        input: document.getElementById('file-input'),
-        btn: document.getElementById('convert-btn'),
-        sidebar: document.getElementById('sidebar-content'),
-        log: document.getElementById('log-mini'),
-        prog: document.getElementById('progress-fill'),
-        perc: document.getElementById('percent-display'),
-        fname: document.getElementById('file-name-display')
-    };
+const dom = {
+    input: document.getElementById('file-input'),
+    btn: document.getElementById('convert-btn'),
+    sidebar: document.getElementById('sidebar-content'),
+    log: document.getElementById('log-mini'),
+    prog: document.getElementById('progress-fill'),
+    perc: document.getElementById('percent-display'),
+    fname: document.getElementById('file-name-display')
+};
 
-    dom.input.addEventListener('change', (e) => {
-        const selected = Array.from(e.target.files);
-        selected.forEach(file => {
-            if (file.name.toLowerCase().endsWith('.pmf')) {
-                files.push({ file, status: 'waiting', url: null });
-            }
-        });
-        updateList();
-    });
-
-    function updateList() {
-        dom.btn.disabled = files.length === 0 || processing;
-        if (files.length === 0) {
-            dom.sidebar.innerHTML = '<p style="color: var(--dim); text-align: center; margin-top: 50px;">Fila vazia</p>';
-            return;
+// Gerenciamento de Arquivos
+dom.input.addEventListener('change', (e) => {
+    const selected = Array.from(e.target.files);
+    selected.forEach(file => {
+        if (file.name.toLowerCase().endsWith('.pmf')) {
+            files.push({ file, status: 'waiting', url: null });
         }
-        dom.sidebar.innerHTML = files.map((f, i) => `
-            <div class="file-card">
-                <div style="font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis;">${f.file.name}</div>
-                <div>${f.url ? `<a href="${f.url}" download="${f.file.name.replace(/\.pmf$/i, '.mp4')}" style="color:var(--accent)"><i class="fas fa-download"></i></a>` : `<i class="fas fa-clock" style="color:#333"></i>`}</div>
-            </div>
-        `).join('');
-    }
-
-    function addLog(msg) {
-        const div = document.createElement('div');
-        div.textContent = `> ${msg}`;
-        dom.log.appendChild(div);
-        dom.log.scrollTop = dom.log.scrollHeight;
-    }
-
-    window.copyLogs = () => {
-        navigator.clipboard.writeText(dom.log.innerText);
-        alert("Logs copiados para a área de transferência");
-    };
-
-    ffmpeg.on('log', ({ message }) => addLog(message));
-    ffmpeg.on('progress', ({ progress }) => {
-        const p = Math.round(progress * 100);
-        dom.prog.style.width = p + '%';
-        dom.perc.innerText = p + '%';
     });
+    updateList();
+});
 
-    dom.btn.onclick = async () => {
-        if (processing) return;
-        processing = true;
-        updateList();
+function updateList() {
+    dom.btn.disabled = files.length === 0 || processing;
+    if (files.length === 0) {
+        dom.sidebar.innerHTML = '<p style="color: var(--dim); text-align: center; margin-top: 50px;">Fila vazia</p>';
+        return;
+    }
+    dom.sidebar.innerHTML = files.map((f, i) => `
+        <div class="file-card">
+            <div style="font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; max-width: 70%;">${f.file.name}</div>
+            <div>
+                ${f.status === 'done' 
+                    ? `<a href="${f.url}" download="${f.file.name.replace(/\.pmf$/i, '.mp4')}" style="color:var(--accent)"><i class="fas fa-download"></i></a>` 
+                    : f.status === 'working' 
+                        ? `<i class="fas fa-spinner fa-spin" style="color:var(--accent)"></i>`
+                        : `<i class="fas fa-clock" style="color:#333"></i>`
+                }
+            </div>
+        </div>
+    `).join('');
+}
 
-        if (!ffmpeg.loaded) {
-            addLog("Iniciando motor...");
+function addLog(msg) {
+    const div = document.createElement('div');
+    div.textContent = `> ${msg}`;
+    dom.log.appendChild(div);
+    dom.log.scrollTop = dom.log.scrollHeight;
+}
+
+window.copyLogs = () => {
+    navigator.clipboard.writeText(dom.log.innerText);
+    alert("Logs copiados!");
+};
+
+// Handlers do FFmpeg
+ffmpeg.on('log', ({ message }) => addLog(message));
+ffmpeg.on('progress', ({ progress }) => {
+    const p = Math.round(progress * 100);
+    dom.prog.style.width = p + '%';
+    dom.perc.innerText = p + '%';
+});
+
+// Função Principal de Conversão
+dom.btn.onclick = async () => {
+    if (processing) return;
+    processing = true;
+    updateList();
+
+    if (!ffmpeg.loaded) {
+        addLog("Carregando engine FFmpeg...");
+        try {
             const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
             await ffmpeg.load({
                 coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
-                wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
-                workerURL: await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, "text/javascript")
+                wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm")
+                // Removido workerURL para maior compatibilidade inicial
             });
+            addLog("Engine pronto!");
+        } catch (err) {
+            addLog("Erro ao carregar engine: " + err.message);
+            processing = false;
+            return;
         }
+    }
 
-        for (let item of files) {
-            if (item.status === 'done') continue;
-            
-            dom.fname.innerText = item.file.name;
-            item.status = 'working';
-            
-            try {
-                const inName = item.file.name;
-                const outName = inName.replace(/\.pmf$/i, '.mp4');
-                
-                await ffmpeg.writeFile(inName, await fetchFile(item.file));
-                await ffmpeg.exec(['-i', inName, '-c:v', 'libx264', '-preset', 'ultrafast', outName]);
-                
-                const data = await ffmpeg.readFile(outName);
-                item.url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
-                item.status = 'done';
-                
-                await ffmpeg.deleteFile(inName);
-                await ffmpeg.deleteFile(outName);
-            } catch (e) {
-                addLog("ERRO: " + e.message);
-                item.status = 'error';
-            }
-            updateList();
-        }
-
-        processing = false;
-        dom.fname.innerText = "Concluído!";
+    for (let item of files) {
+        if (item.status === 'done') continue;
+        
+        dom.fname.innerText = `Convertendo: ${item.file.name}`;
+        item.status = 'working';
         updateList();
-    };
+        
+        try {
+            const inName = "input_" + item.file.name;
+            const outName = "output_" + inName.replace(/\.pmf$/i, '.mp4');
+            
+            // Leitura do arquivo usando ArrayBuffer (mais estável)
+            const arrayBuffer = await item.file.arrayBuffer();
+            await ffmpeg.writeFile(inName, new Uint8Array(arrayBuffer));
+            
+            addLog(`Processando ${item.file.name}...`);
+            
+            // Comando otimizado para compatibilidade
+            await ffmpeg.exec([
+                '-i', inName, 
+                '-c:v', 'libx264', 
+                '-preset', 'ultrafast', 
+                '-pix_fmt', 'yuv420p', // Garante que rode em qualquer player
+                outName
+            ]);
+            
+            const data = await ffmpeg.readFile(outName);
+            item.url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
+            item.status = 'done';
+            
+            await ffmpeg.deleteFile(inName);
+            await ffmpeg.deleteFile(outName);
+            addLog(`Sucesso: ${item.file.name}`);
+        } catch (e) {
+            addLog("ERRO no arquivo " + item.file.name + ": " + e.message);
+            item.status = 'error';
+        }
+        updateList();
+    }
+
+    processing = false;
+    dom.fname.innerText = "Todos os processos finalizados!";
+    dom.prog.style.width = '0%';
+    dom.perc.innerText = '0%';
+};
 </script>
 </body>
 </html>
